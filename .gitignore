@@ -7,3 +7,6 @@ npm-debug.log
 
 # Credentials
 credentials/
+
+# idea dependencies
+.idea
