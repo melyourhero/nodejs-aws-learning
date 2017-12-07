@@ -7,8 +7,8 @@
 </head>
 <body>
 
-<form enctype="multipart/form-data" method="post" name="fileinfo" action="/media">
-    <label>File to stash:</label>
+<form enctype="multipart/form-data" method="post" name="fileinfo" action="/media/files">
+    <label>File to send:</label>
     <input id="test-file" type="file" name="file" required />
     <input type="submit" value="Send the file!" />
 </form>
@@ -21,10 +21,9 @@
     const input = document.querySelector('input[type="file"]');
     const data = new FormData();
 
+    data.append('parentId', '5a282911f094b725355528b3');
+    data.append('fileName', 'homeFile');
     data.append('file', input.files[0]);
-    data.append('parentId', '5a282924f094b725355528b4');
-    data.append('fileName', 'naruto199.jpeg');
-    data.append('bucketName', 'node-sdk-sample-b2ad9a04-449e-49d8-96ee-57308a609c88');
 
     axios({
       method: 'POST',

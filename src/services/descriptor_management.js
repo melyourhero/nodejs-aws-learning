@@ -14,9 +14,8 @@ function descriptorManagement() {
       return FileDescriptor.find({});
     },
 
-    // TODO
     findDescriptorByFileName(fileName) {
-      return {};
+      return FileDescriptor.findOne({ fileName });
     },
 
     // TODO
@@ -25,29 +24,22 @@ function descriptorManagement() {
     },
 
     updateParentDescriptor(id, descriptor) {
-      return FileDescriptor.findOne({ _id: id }, async (error, doc) => {
+      const query = { $push: { children: descriptor } };
 
-        if (error) {
-          throw Error(error);
-        }
-
-        doc.children.push(descriptor);
-
-        await doc.save();
-      });
+      return FileDescriptor.findByIdAndUpdate(id, query);
     },
 
-    removeDescriptorById(id, parentId) {
-      return FileDescriptor.findOne({ _id: parentId }, async (error, doc) => {
+    removeDescriptorById(id) {
+      return FileDescriptor.findById(id, async (error, doc) => {
         if (error) {
           throw Error(error);
         }
 
-        doc.children.filter(() => o._id !== id);
+        const query = { $pull: { children: id } };
 
-        await doc.save();
+        await FileDescriptor.findByIdAndUpdate(doc.parent, query);
 
-        await FileDescriptor.remove({ _id: id });
+        await doc.remove();
       });
     },
 
