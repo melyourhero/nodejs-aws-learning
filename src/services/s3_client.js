@@ -9,34 +9,32 @@ AWS.config.update({
   secretAccessKey: fs.readFileSync('./credentials/secret.txt'),
 });
 
-const s3 = new AWS.S3();
+let instance = null;
 
-const s3Client = (function () {
-  let instance = null;
+class S3Client {
+  constructor() {
+    this.s3Client = new AWS.S3();
+  }
 
-  const createInstance = () => ({
-    createBucket(bucketName) {
-      return s3.createBucket({ Bucket: bucketName }).promise();
-    },
+  createBucket(bucketName) {
+    return this.s3Client.createBucket({Bucket: bucketName}).promise();
+  }
 
-    put(params) {
-      return s3.putObject(params).promise();
-    },
+  put(params) {
+    return this.s3Client.putObject(params).promise();
+  }
 
-    upload(params) {
-      return s3.upload(params).promise();
-    }
-  });
+  upload(params) {
+    return this.s3Client.upload(params).promise();
+  }
+}
 
-  return {
-    getInstance() {
-      if (!instance) {
-        instance = createInstance();
-      }
+function getInstance() {
+  if (!instance) {
+    instance = new S3Client();
+  }
 
-      return instance;
-    }
-  };
-})();
+  return instance;
+};
 
-module.exports = s3Client;
+module.exports = getInstance();

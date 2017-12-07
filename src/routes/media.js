@@ -1,20 +1,84 @@
 const express = require('express');
 const Busboy = require('busboy');
+const { header } = require('express-validator/check');
+const { map: asyncMap } = require('bluebird');
 const get = require('lodash/fp/get');
 
-const { descriptorManagement } = require('../services/descriptor_management');
+const {
+  createDescriptor,
+  findAllDescriptors,
+  findDescriptorById,
+  removeAllDescriptors,
+  removeDescriptorById,
+} = require('../services/descriptor_management');
 const { uploadFile } = require('../services/file_service');
 
 const router = new express.Router();
 
-const descriptorManager = descriptorManagement();
-
 const getFileName = get('Key');
 const getFileLocation = get('Location');
 
+const handlePromiseError = (error) => {
+  error.status = 'rejected';
+
+  return error;
+};
+
+const mapUploadResults = (parentId) => async (uploadResult) => {
+  if (uploadResult.status === 'rejected') {
+    console.log(`Rejected. ${uploadResult}`);
+
+    return uploadResult;
+  }
+
+  console.log(`AWS S3. Successfully uploaded. ${JSON.stringify(uploadResult, null, 4)}`);
+
+  const fileName = getFileName(uploadResult);
+
+  try {
+    return await createDescriptor({
+      link: getFileLocation(uploadResult),
+      fileName,
+      isDir: false,
+      parentId,
+    });
+  } catch (error) {
+    console.log(`Error creating descriptor. ${error}`);
+
+    return uploadResult;
+  }
+};
+
+router.get('/media/files', async (req, res) => {
+  try {
+    const descriptors = await findAllDescriptors();
+
+    res.send({ data: descriptors })
+  } catch (error) {
+    console.log(`Error when find all descriptors. ${error}`);
+
+    res.send({ error });
+  }
+});
+
+router.get('/media/files/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const descriptor = await findDescriptorById(id).populate('children');
+
+    res.send({ data: descriptor })
+
+  } catch (error) {
+    console.log(`Error when find descriptor by id. ${error}`);
+
+    res.send(error);
+  }
+});
+
 router.delete('/media/files', async (req, res) => {
   try {
-    const descriptors = await descriptorManager.removeAllDescriptors();
+    const descriptors = await removeAllDescriptors();
 
     res.send({ data: descriptors })
   } catch (error) {
@@ -28,7 +92,7 @@ router.delete('/media/files/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const descriptor = await descriptorManager.removeDescriptorById(id);
+    const descriptor = await removeDescriptorById(id);
 
     res.send({ data: descriptor })
   } catch (error) {
@@ -38,110 +102,64 @@ router.delete('/media/files/:id', async (req, res) => {
   }
 });
 
-router.get('/media/files', async (req, res) => {
-  try {
-    const descriptors = await descriptorManager.findAllDescriptors();
-
-    res.send({ data: descriptors })
-  } catch (error) {
-    onsole.log(`Error when find all descriptors. ${error}`);
-
-    res.send({ error });
-  }
-});
-
-router.get('/media/files/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const descriptor = await descriptorManager.findDescriptorById(id);
-
-    res.send({ data: descriptor })
-
-  } catch (error) {
-    console.log(`Error when find descriptor by id. ${error}`);
-
-    res.send(error);
-  }
-});
-
 // TODO: add header validation
-router.post('/media/files', async (req, res) => {
+router.post('/media/files', [
+  header('content-type', 'You need specify multipart/form-data content-type')
+    .exists()
+    .custom((value, { req }) => value.includes('multipart/form-data')), // shit
+], async (req, res) => {
   const busboy = new Busboy({ headers: req.headers });
   const uploads = [];
 
   let parentId = '';
-  let fileName = '';
+  let isInvalid = false;
 
-  busboy.on('field', (fieldname, value) => {
-    if (fieldname === 'parentId') {
-      parentId = value;
+  busboy.on('field', (fieldName, value) => {
+    if (isInvalid) {
+      return;
     }
 
-    if (fieldname === 'fileName') {
-      fileName = value;
+    if (fieldName === 'parentId') {
+      parentId = value;
     }
   });
 
-  busboy.on('file', (fieldname, fileStream) => {
+  busboy.on('file', (fieldName, fileStream, fileName) => {
     if (!parentId) {
+      isInvalid = true;
+
       res.status(400).send({ message: 'Bad request' });
     } else {
-      uploads.push(uploadFile(fileStream, { fileName }).catch(error => {
-        error.status = 'rejected';
-
-        return error;
-      }));
+      uploads.push(uploadFile(fileStream, { fileName }).catch(handlePromiseError));
     }
   });
 
   busboy.on('finish', () => {
-    Promise.all(uploads).then((uploadResults) => {
-      uploadResults.forEach(async (uploadResult) => {
-        if (uploadResult.status === 'rejected') {
-          console.log(`Rejected. ${uploadResult}`);
+    if (isInvalid) {
+      return;
+    }
 
-          res.status(500).send({ error: uploadResult });
-        } else {
-          console.log(`AWS S3. Successfully uploaded. ${JSON.stringify(uploadResult, null, 4)}`);
-
-          const fileName = getFileName(uploadResult);
-
-          try {
-            const fileDescriptor = await descriptorManager.createDescriptor({
-              content: getFileLocation(uploadResult),
-              fileName,
-              isDir: false,
-              parentId: parentId,
-            });
-
-            await descriptorManager.updateParentDescriptor(parentId, fileDescriptor);
-
-            res.status(200).send({ message: 'Successful HTTP requests', ...uploadResult });
-          } catch (error) {
-            console.log(`Error creating descriptor. ${error}`);
-
-            res.send({ error });
-          }
-        }
+    Promise.all(uploads)
+      .then((uploadResults) => asyncMap(uploadResults, mapUploadResults(parentId)))
+      .then((resolvedResults) => {
+        res.status(200).send({ message: 'Successful HTTP requests', data: resolvedResults });
       });
-    });
   });
 
   return req.pipe(busboy);
 });
 
 router.post('/media/dir', async (req, res) => {
-  const { fileName, parentId } = req.body;
+  const { dirName, parentId } = req.body;
 
   try {
-    const fileDescriptor = await descriptorManager.createDescriptor({ parentId, fileName, isDir: true });
+    const fileDescriptor = await createDescriptor({
+      parentId,
+      fileName: dirName,
+      isDir: true,
+    });
 
-    const result = await descriptorManager.updateParentDescriptor(parentId, fileDescriptor);
-
-    console.log('res', result);
-
-    res.send({ fileDescriptor, result })
+    res.send({ data: fileDescriptor })
   } catch (error) {
     console.log(`Error creating descriptor. ${error}`);
 

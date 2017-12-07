@@ -4,15 +4,9 @@ const fileDescriptorSchema = mongoose.Schema({
   isDir: Boolean,
   fileName: {
     type: String,
-    unique: true,
     required: true,
-    index: true,
   },
-  content: {
-    type: String,
-    // unique: true,
-    // required: true,
-  },
+  link: String,
   parent: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'FileDescriptor',

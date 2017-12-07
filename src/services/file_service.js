@@ -1,6 +1,6 @@
 const uuid = require('uuid');
 
-const s3Client = require('./s3_client').getInstance();
+const s3Client = require('./s3_client');
 
 function makeFileName (fileName = 'file') {
   return `${fileName}-${uuid.v4()}`;

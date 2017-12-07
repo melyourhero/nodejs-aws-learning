@@ -1,53 +1,53 @@
 const FileDescriptor = require('../models/file_descriptor');
 
-const descriptorFactory = ({ parentId, fileName, isDir, content }) => (
-  parentId ? ({ parent: parentId, fileName, isDir, content }) : ({ fileName, isDir, content })
-);
+function findDescriptorById(id) {
+  return FileDescriptor.findById(id);
+};
 
-function descriptorManagement() {
-  return {
-    findDescriptorById(id) {
-      return FileDescriptor.findOne({ _id: id }).populate('children').exec();
-    },
+function findAllDescriptors() {
+  return FileDescriptor.find({});
+};
 
-    findAllDescriptors() {
-      return FileDescriptor.find({});
-    },
+async function findDescriptorByFileName(fileName) {
+  return await FileDescriptor.findOne({ fileName });
+};
 
-    findDescriptorByFileName(fileName) {
-      return FileDescriptor.findOne({ fileName });
-    },
+function updateParentDescriptor(id, descriptor) {
+  const query = { $push: { children: descriptor } };
 
-    // TODO
-    createDescriptor({ parentId, fileName, isDir, content = '' }) {
-      return FileDescriptor.create(descriptorFactory({ parentId, fileName, isDir, content }));
-    },
+  return FileDescriptor.findByIdAndUpdate(id, query);
+};
 
-    updateParentDescriptor(id, descriptor) {
-      const query = { $push: { children: descriptor } };
+async function createDescriptor({ parentId, fileName, isDir, link = '' }) {
+  const entity = parentId ? ({ parent: parentId, fileName, isDir, link }) : ({ fileName, isDir, link });
+  const descriptor = await FileDescriptor.create(entity);
 
-      return FileDescriptor.findByIdAndUpdate(id, query);
-    },
+  if (parentId) {
+    await updateParentDescriptor(parentId, descriptor);
+  }
 
-    removeDescriptorById(id) {
-      return FileDescriptor.findById(id, async (error, doc) => {
-        if (error) {
-          throw Error(error);
-        }
+  return descriptor;
+};
 
-        const query = { $pull: { children: id } };
+async function removeDescriptorById(id) {
+  const descriptor = await FileDescriptor.findById(id);
+  const query = { $pull: { children: id } };
 
-        await FileDescriptor.findByIdAndUpdate(doc.parent, query);
+  await FileDescriptor.findByIdAndUpdate(descriptor.parent, query);
 
-        await doc.remove();
-      });
-    },
+  return await descriptor.remove();
+};
 
-    // TODO
-    removeAllDescriptors: () => FileDescriptor.remove({}),
-  };
+async function removeAllDescriptors() {
+  return await FileDescriptor.remove({});
 };
 
 module.exports = {
-  descriptorManagement,
+  createDescriptor,
+  findAllDescriptors,
+  findDescriptorByFileName,
+  findDescriptorById,
+  removeAllDescriptors,
+  removeDescriptorById,
+  updateParentDescriptor,
 };
