@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>AWS Media Uploader</title>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.15.0/lodash.min.js"></script>
 </head>
 <body>
 
@@ -35,9 +36,23 @@
       console.log('Server response: ', response);
 
       const img = document.createElement('img');
-      img.src = response.data.Location;
+      img.src = _.get(response, 'data.data[0].link');
 
       document.body.appendChild(img);
+
+      const socialUploaderButton = document.createElement("button");
+      const buttonLabel = document.createTextNode("Upload to Facebook");
+
+      socialUploaderButton.appendChild(buttonLabel);
+      socialUploaderButton.addEventListener('click', (event) => {
+        axios.post('http://localhost:8080/social/post', { link: _.get(response, 'data.data[0].link') }).then((socialResponse) => {
+          console.log('event', event);
+          console.log('socialResponse', socialResponse);
+        });
+      });
+
+      document.body.appendChild(socialUploaderButton);
+
     }).catch((error) => console.log('Server error: ', error));
 
     event.preventDefault();

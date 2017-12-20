@@ -9,6 +9,11 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 app.use(require('./routes/media'));
+app.use(require('./routes/social'));
+
+app.get('/', (req, res) => {
+  res.send({ message: 'Test message!' });
+});
 
 module.exports = app;
 

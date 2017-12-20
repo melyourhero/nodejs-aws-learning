@@ -8,8 +8,8 @@ function findAllDescriptors() {
   return FileDescriptor.find({});
 };
 
-async function findDescriptorByFileName(fileName) {
-  return await FileDescriptor.findOne({ fileName });
+function findDescriptorByFileName(fileName) {
+  return FileDescriptor.findOne({ fileName });
 };
 
 function updateParentDescriptor(id, descriptor) {
