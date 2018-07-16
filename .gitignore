@@ -2,11 +2,11 @@
 node_modules
 package-lock.json
 
+#Configuration
+config/
+
 # Logs
 npm-debug.log
-
-# Credentials
-credentials/
 
 # idea dependencies
 .idea

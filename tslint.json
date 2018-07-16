@@ -1,0 +1,26 @@
+{
+    "defaultSeverity": "error",
+    "extends": [
+        "tslint:recommended"
+    ],
+    "rules": {
+        "quotemark": [true, "single"],
+        "jsx-equals-spacing": [true, "always"],
+        "jsx-no-multiline-js": false,
+        "ordered-imports": false,
+        "jsdoc-format": false,
+        "interface-name": false,
+        "object-literal-sort-keys": false,
+        "no-console": {
+            "severity": "warning",
+            "options": [
+                "debug",
+                "info",
+                "log",
+                "time",
+                "timeEnd",
+                "trace"
+            ]
+        }
+    }
+}
